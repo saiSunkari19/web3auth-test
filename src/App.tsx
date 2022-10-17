@@ -7,10 +7,12 @@ import { WALLET_ADAPTERS, CHAIN_NAMESPACES, SafeEventEmitterProvider } from "@we
 import { OpenloginAdapter } from "@web3auth/openlogin-adapter";
 import { cosmos, InstallError } from "@cosmostation/extension-client";
 import { SEND_TRANSACTION_MODE } from "@cosmostation/extension-client/cosmos";
+import { getOfflineSigner } from '@cosmostation/cosmos-client';
+import {SigningStargateClient } from "@cosmjs/stargate";
+import { defaultRegistryTypes } from '@cosmjs/stargate';
 
 
 const clientID ="BE8Aj_uSDOMsjzWj58KzVoDavC3yghwWIR4iFl7hv7IXgiGDBnBZypdveGq_OVP24Zt2S3n0iQkm5Y3y2ZV9SRg";
-
 function App() {
  const [web3auth, setWeb3auth] = useState<Web3Auth |  null>(null)
  const [provider, setProvider] = useState<SafeEventEmitterProvider | null>(null);
@@ -60,9 +62,9 @@ function App() {
   },[])
 
 const networkInfo = {
-  name:"assetmantle",
-  denom:"umntl",
-  chainId: "mantle-1",
+  name:"comdex",
+  denom:"ucmdx",
+  chainId: "comdex-1",
   decimal: 6,
 }
 
@@ -121,7 +123,8 @@ const networkInfo = {
 
       const chains = await provider.getSupportedChains()
       console.log(chains)
-
+      const activatedChains = await provider.getSupportedChainIds();
+      console.log(activatedChains)
     
 
 
@@ -129,11 +132,22 @@ const networkInfo = {
       const account = await provider.requestAccount(networkInfo.chainId);
       console.log(account)
     
-      const activatedChains = await provider.getSupportedChainIds();
-      console.log(activatedChains)
+  
+      const signer =  await getOfflineSigner(networkInfo.chainId)
+      const [address] = await signer.getAccounts()
+      console.log(address);
+      
 
-      // Sign Message
-      const response = await provider.signAmino(
+      const client = await SigningStargateClient.connectWithSigner(
+        "rpc.comdex.prithvidevs.in",
+        signer,
+    );
+    const txHash = await client.sendTokens(account.address, account.address, [{ denom: networkInfo.denom, amount: "5000" }], { amount: [{ denom: networkInfo.denom, amount: "5000" }], gas: "200000" },"test tx self")
+    console.log(txHash);
+    
+
+    // Sign Message
+        const response = await provider.signAmino(
         networkInfo.name,
         {
           chain_id: networkInfo.chainId,
@@ -155,13 +169,13 @@ const networkInfo = {
         { memo: true, fee: true } // edit | optional (default: { memo: false, fee: false }),
       );
       
-      console.log(response)
+      console.log(response.signed_doc)
 
       
 
       const txResponse = await provider.sendTransaction(
         networkInfo.name,
-        response.toString(), // base64 string or Uint8Array
+        "", // base64 string or Uint8Array
         SEND_TRANSACTION_MODE.BLOCK /* SEND_TRANSACTION_MODE or one of [0, 1, 2, 3] */
       );
 
